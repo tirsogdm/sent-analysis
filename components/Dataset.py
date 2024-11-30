@@ -4,11 +4,14 @@ from spacy.tokens import Doc
 from tabulate import tabulate
 from tqdm import tqdm
 import spacy
+import sys
+import os
 
 Doc.set_extension('rating', default=None)
 Doc.set_extension('label', default=None)
 Doc.set_extension('id', default=None)
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils import read_in
 
 """
@@ -124,7 +127,6 @@ class Dataset(list):
         return self._.freq_dist
 
     # --- ANALYSIS METHODS ---
-    # NOTE: CAN ADD SENTENCE ANALYSIS through doc.sents
     def get_statistics(self, verbose=False):
         """
         Get basic statistics about the dataset.
@@ -133,19 +135,26 @@ class Dataset(list):
         -------
         list[str]
         """
-        stats = []
+        stats =  []
         for subset in self.get_label_subsets():
-            vocab = [token.lemma_ for doc in subset for token in doc]
-            total_lemmas = len(vocab)
-            avg_rev_length = total_lemmas / len(subset)
+            vocab = []
+            n_sents = 0
+            for doc in subset:
+                vocab += [token.lemma_ for token in doc] # .text or .lemma_
+                n_sents += len(list(doc.sents))
+            word_count = len(vocab)
+            avg_rev_length = word_count / len(subset)
+            avg_sent_length = word_count / n_sents
             vocab_size = len(set(vocab))
-            diversity = total_lemmas / vocab_size
-            # Out
-            subset_stats = ["Label", "Average Review Length (words)", "Vocabulary Size", "Diversity Ratio"], [subset.labels[0], avg_rev_length, vocab_size, diversity]
+
+            print(word_count, vocab_size)
+            diversity = word_count / vocab_size
+            
+            subset_stats = ["Label", "Average Review Length (words)", "Average Sentence Length (words)", "Vocabulary Size", "Diversity Ratio"], [subset.labels[0], avg_rev_length, avg_sent_length, vocab_size, diversity]
             stats.append(subset_stats)
             if verbose:
                 print(tabulate(subset_stats))
-        return stats
+
 
     def get_unique_vocab(self, verbose=False):
         """
@@ -164,7 +173,7 @@ class Dataset(list):
         unique_v2 = len(set(vocab2) - set(vocab1))
 
         if verbose:
-            print(tabulate(["Unique to", "Size"], [subsets[0].labels[0], len(set(vocab1) - set(vocab2))], [subsets[1].labels[0], len(set(vocab2) - set(vocab1))]))
+            print(tabulate([["Unique to", " "], [subsets[0].labels[0], len(set(vocab1) - set(vocab2))], [subsets[1].labels[0], len(set(vocab2) - set(vocab1))]]))
         return [unique_v1, unique_v2]
     
 
@@ -174,8 +183,8 @@ if __name__ == "__main__":
 
     pipeline = spacy.load('en_core_web_sm')
     pipeline.remove_pipe('ner')
-    pipeline.remove_pipe('tok2vec')
-    pipeline.analyze_pipes(pretty=True)
     dataset = Dataset([1, -1], pipeline=pipeline, data=reviews)
     train_dataset, eval_dataset, test_dataset = dataset.split()
+    
     dataset.get_statistics(verbose=True)
+    dataset.get_unique_vocab(verbose=True)
