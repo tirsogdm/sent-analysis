@@ -1,4 +1,3 @@
-# PYTHON MODULES
 from sklearn.model_selection import train_test_split
 from collections import Counter
 from spacy.tokens import Doc
@@ -10,7 +9,6 @@ Doc.set_extension('rating', default=None)
 Doc.set_extension('label', default=None)
 Doc.set_extension('id', default=None)
 
-# CUSTOM MODULES
 from utils import read_in
 
 """
@@ -107,7 +105,7 @@ class Dataset(list):
             labels.append(doc._.label)
         return data, labels
 
-    # --- ANALYSIS METHODS ---
+    @property
     def frequency_distribution(self):
         """
         Compute frequency distribution of words in the dataset.
@@ -117,12 +115,15 @@ class Dataset(list):
         Counter
             Frequency distribution of word lemmas across dataset.
         """
-        freq_dist = Counter()
-        for doc in self:
-            lemmas = [token.lemma_.lower() for token in doc]
-            freq_dist.update(lemmas)
-        return freq_dist
+        if not hasattr(self, '_freq_dist'):
+            freq_dist = Counter()
+            for doc in self:
+                lemmas = [token.lemma_.lower() for token in doc]
+                freq_dist.update(lemmas)
+            self._freq_dist = freq_dist
+        return self._.freq_dist
 
+    # --- ANALYSIS METHODS ---
     # NOTE: CAN ADD SENTENCE ANALYSIS through doc.sents
     def get_statistics(self, verbose=False):
         """
@@ -167,17 +168,7 @@ class Dataset(list):
         return [unique_v1, unique_v2]
     
 
-
 if __name__ == "__main__":
-    config = {
-        'tokeniser': {'method': 'spacy'},
-        'word_normaliser': {'method': 'lemma'},
-        'filter': {'method': 'punctuation'},
-        'phrase_extractor': {'method': 'ngram', 'args': {'n': 2}},
-        'boost': {'method': ''},
-        'feature_normaliser': {'method': 'row'},
-    }
-
     reviews = read_in('data/pos', 1)
     reviews += read_in('data/neg', -1)
 
