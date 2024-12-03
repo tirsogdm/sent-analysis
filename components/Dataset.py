@@ -127,7 +127,7 @@ class Dataset(list):
         return self._.freq_dist
 
     # --- ANALYSIS METHODS ---
-    def get_statistics(self, verbose=False):
+    def get_base_statistics(self, verbose=False):
         """
         Get basic statistics about the dataset.
 
@@ -140,21 +140,20 @@ class Dataset(list):
             vocab = []
             n_sents = 0
             for doc in subset:
-                vocab += [token.lemma_ for token in doc] # .text or .lemma_
+                vocab += [token.text for token in doc] # .text or .lemma_
                 n_sents += len(list(doc.sents))
             word_count = len(vocab)
             avg_rev_length = word_count / len(subset)
             avg_sent_length = word_count / n_sents
             vocab_size = len(set(vocab))
 
-            print(word_count, vocab_size)
             diversity = word_count / vocab_size
             
-            subset_stats = ["Label", "Average Review Length (words)", "Average Sentence Length (words)", "Vocabulary Size", "Diversity Ratio"], [subset.labels[0], avg_rev_length, avg_sent_length, vocab_size, diversity]
+            subset_stats = [["Label", "Average Review Length", "Average Sentence Length", "Vocabulary Size", "Diversity Ratio"], [subset.labels[0], avg_rev_length, avg_sent_length, vocab_size, diversity]]
             stats.append(subset_stats)
             if verbose:
-                print(tabulate(subset_stats))
-
+                print(tabulate(subset_stats, headers="firstrow"))
+        return stats
 
     def get_unique_vocab(self, verbose=False):
         """
@@ -162,20 +161,35 @@ class Dataset(list):
         
         Returns
         -------
-        list[str]
+        list[[str]]
             List of unique words in both subsets.
         """
         subsets = self.get_label_subsets()
-        vocab1 = [token.lemma_ for doc in subsets[0] for token in doc]
-        vocab2 = [token.lemma_ for doc in subsets[1] for token in doc]
         
-        unique_v1 = len(set(vocab1) - set(vocab2))
-        unique_v2 = len(set(vocab2) - set(vocab1))
+        vocab_words = [[], []]
+        vocab_lemmas = [[], []]
+        for i, subset in enumerate(subsets):
+            for doc in subset:
+                vocab_lemmas[i] += [token.lemma_ for token in doc]
+                vocab_words[i] += [token.text for token in doc]
 
+        unique_words_pos = len(set(vocab_words[0]) - set(vocab_words[1]))
+        unique_words_neg = len(set(vocab_words[1]) - set(vocab_words[0]))
+        unique_lemmas_pos = len(set(vocab_lemmas[0]) - set(vocab_lemmas[1]))
+        unique_lemmas_neg = len(set(vocab_lemmas[1]) - set(vocab_lemmas[0]))
+
+        data = [['Label', 'Unique Words', 'Unique Lemmas']] 
+        data += [
+            [subsets[0].labels[0], unique_words_pos, unique_lemmas_pos],
+            [subsets[1].labels[0], unique_words_neg, unique_lemmas_neg]
+        ]
         if verbose:
-            print(tabulate([["Unique to", " "], [subsets[0].labels[0], len(set(vocab1) - set(vocab2))], [subsets[1].labels[0], len(set(vocab2) - set(vocab1))]]))
-        return [unique_v1, unique_v2]
+            print(tabulate(data, headers="firstrow"))
+
+        return data
     
+    def get_pos_statistics(self, verbose=False):
+        pass
 
 if __name__ == "__main__":
     reviews = read_in('data/pos', 1)
@@ -186,5 +200,6 @@ if __name__ == "__main__":
     dataset = Dataset([1, -1], pipeline=pipeline, data=reviews)
     train_dataset, eval_dataset, test_dataset = dataset.split()
     
-    dataset.get_statistics(verbose=True)
+    dataset.get_base_statistics(verbose=True)
     dataset.get_unique_vocab(verbose=True)
+    dataset.get_pos_statistics(verbose=True)

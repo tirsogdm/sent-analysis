@@ -2,9 +2,12 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 from spacy.tokens import Doc, Token
 
+import pickle
+
 from components.Classifier import Classifier
 from components.Pipeline import Pipeline
 from components.Dataset import Dataset
+from NaiveBayes import NaiveBayes
 
 from utils import read_in
 
@@ -54,7 +57,19 @@ if __name__ == "__main__":
     dataset = Dataset([1, -1], data=reviews, pipeline=pipeline)
     train_set, eval_set, test_set = dataset.split()
 
-    classifer = CustomClassifier(train_set, eval_set)
-    train_counts = classifer.train()
-    print(train_counts.shape)
-    prediction = classifer.evaluate()
+    classifier = CustomClassifier(train_set, eval_set)
+    train_counts = classifier.train()
+    # print(train_counts.shape)
+    # prediction = classifier.evaluate()
+
+    naive_bayes = NaiveBayes()
+    naive_bayes.train(train_counts, train_set.flatten()[1])
+
+    eval_data, eval_labels = eval_set.flatten()
+    eval_counts = classifier.get_feature_counts(eval_data, is_test=True)
+    predictions = naive_bayes.predict(eval_set)
+    print(predictions)
+
+    # train_labels = train_set.flatten()[1]
+    # with open('counts_and_labels.pkl', 'wb') as file:
+    #   pickle.dump((train_counts, train_labels, eval_set, classifier.cv), file)
