@@ -31,30 +31,29 @@ experiments_to_run = config.get("exps_to_run", [])
 exp_path = Path('experiments')
 exp_files = sorted(exp_path.glob('exp_*.py'), key=lambda x: int(x.stem.split('_')[-1]))
 
-# for exp_file in exp_files:
-#     module_name = f"{exp_path.name}.{exp_file.stem}"
-#     if exp_file.stem not in experiments_to_run:
-#         continue
+for exp_file in exp_files:
+    module_name = f"{exp_path.name}.{exp_file.stem}"
+    if exp_file.stem not in experiments_to_run:
+        continue
 
-#     module = importlib.import_module(module_name)
+    module = importlib.import_module(module_name)
 
-#     # Get classifier class and filtering and text processing methods
-#     description = getattr(module, 'description')
-#     CustomClassifier = getattr(module, 'CustomClassifier')
-#     filtered = getattr(module, 'filtered')
-#     processed_text = getattr(module, 'processed_text')
+    # Get classifier class and filtering and text processing methods
+    description = getattr(module, 'description')
+    CustomClassifier = getattr(module, 'CustomClassifier')
+    filtered = getattr(module, 'filtered')
+    processed_text = getattr(module, 'processed_text')
 
-#     # Set the filtered and processed_text extensions and initialise classifier
-#     Token.set_extension('filtered', method=filtered, force=True)
-#     Doc.set_extension('processed_text', method=processed_text, force=True)
-#     classifier = CustomClassifier(train_set, eval_set)
+    # Set the filtered and processed_text extensions and initialise classifier
+    Token.set_extension('filtered', method=filtered, force=True)
+    Doc.set_extension('processed_text', method=processed_text, force=True)
+    classifier = CustomClassifier(train_set, eval_set)
     
-#     # Run the classifier and print info
-#     print("="*50)
-#     print(f"Running {module_name}")
-#     print(description)
-#     classifier.run()
-
+    # Run the classifier and print info
+    print("="*50)
+    print(f"Running {module_name}")
+    print(description)
+    classifier.run()
 
 """
 EVALUATE MODEL ON TEST SET
