@@ -6,12 +6,27 @@ import numpy as np
 
 from abc import ABC, abstractmethod
 
+from .CustomNB import CustomNB
+
 class Classifier(ABC):
+    """
+    Abstract class for training and evaluating a given feature set. Define feature set in abstract method.
+    """
     def __init__(self, train_set, eval_set):
+        self.train_set = train_set
+        self.eval_set = eval_set
+        
         self.train_data, self.train_labels = train_set.flatten()
         self.eval_data, self.eval_labels = eval_set.flatten()
 
-    def train(self):
+    def run(self):
+        """
+        Run the classifier.
+        """
+        self.train()
+        self.evaluate()
+
+    def train(self, type='sklearn'):
         """
         Train the classifier.
 
@@ -21,7 +36,9 @@ class Classifier(ABC):
             Feature counts of the training data.
         """
         train_counts = self.get_feature_counts(self.train_data, is_test=False)
-        self.clf = MultinomialNB().fit(train_counts, self.train_labels)
+        print("Feature vector size:", train_counts.shape[1])
+        self.clf = MultinomialNB() if type == 'sklearn' else CustomNB()
+        self.clf.fit(train_counts, self.train_labels)
         return train_counts
 
     def evaluate(self, verbose=True):
@@ -59,8 +76,7 @@ class Classifier(ABC):
         return self.cv.transform(data)
 
     # --- NORMALISATION METHODS ---
-    @staticmethod
-    def row_wise_l1(counts):
+    def row_wise_l1(self, counts):
         """
         Normalise counts row-wise - L1 norm (sum of absolute values)
 
@@ -87,8 +103,7 @@ class Classifier(ABC):
         normalised_counts = counts.multiply(1 / row_norms)
         return normalised_counts
 
-    @staticmethod
-    def row_wise_l2(counts):
+    def row_wise_l2(self, counts):
         """
         Normalise counts row-wise - L2 norm (square root of sum of squares)
 
@@ -100,7 +115,7 @@ class Classifier(ABC):
         Returns
         -------
         normalised_counts : scipy.sparse.csr.csr_matrix
-            Normalised feature counts
+            Normalised sparse matrix of feature counts.
         """
         # Square root of sum of squares to get L2 norm
         row_norms = np.sqrt(counts.multiply(counts).sum(axis=1))
@@ -115,9 +130,37 @@ class Classifier(ABC):
         normalised_counts = counts.multiply(1 / row_norms)
         return normalised_counts
  
-    @staticmethod
-    def tfidf(counts):
+    def tfidf(self, counts):
         """
-        Normalise counts by term frequency inverse document frequency.
+        Normalise counts - Term Frequency Inverse Document Frequency.
+
+        Parameters
+        ----------
+        counts : scipy.sparse.csr.csr_matrix
+            Sparse matrix of feature counts.
+        
+        Returns
+        -------
+        tfidf : scipy.sparse.csr.csr_matrix
+            Normalised feature counts.
         """
-        return counts
+        # Term Frequency TF(d, t) = count of t in d / length of d
+        # > Sum row-wise for document length (num of total term counts)
+        doc_lengths = np.array(counts.sum(axis=1)).flatten()
+        # > Element-wise division of each element by its row length
+        tf = counts.multiply(1 / doc_lengths[:, None])
+
+        # Inverse Document Frequency IDF(t) = log ( num of docs / DF(t) + epsilon ) where DF(t) = num docs in which t appears
+        num_docs = counts.shape[0]
+        # > Column-wise sum of non-zero counts
+        doc_freq = np.array((counts >0).sum(axis=0)).flatten()
+        # > Smooth values and avoid division by zero.
+        idf = np.log((1 + num_docs) / (1 + doc_freq)) + 1
+
+        # Term Frequency Inverse Document Frequency TFIDF(t,d) = TF(t,d) * IDF(t)
+        tfidf = tf.multiply(idf)
+        return tfidf
+    
+
+if __name__ == "__main__":
+    clf = MultinomialNB()

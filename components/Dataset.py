@@ -27,7 +27,7 @@ class Dataset(list):
 
         Parameters
         ----------
-        laels : list[int]
+        labels : list[int]
             List of labels of passed reviews.
 
         docs : list[spacy.Doc], optional
@@ -43,6 +43,7 @@ class Dataset(list):
             Type of dataset.
         """
         self.labels = labels
+        self.type = type
 
         if not docs:
             if pipeline and data:
@@ -57,6 +58,52 @@ class Dataset(list):
                 raise ValueError("Pipeline and data must be provided.")
 
         super().__init__(docs)
+
+    # WORKING WITH EXTRACTED INFORMATION FROM TRAINING SET
+    def in_freq_range(self, lemma, min_df=1, max_df=None):
+        """
+        Get the documents in the frequency range.
+
+        Parameters
+        ----------
+        min_df : int
+            Minimum frequency of lemma to be included.
+        
+        max_df : int
+            Maximum frequency of lemma to be included.
+        
+        Returns
+        -------
+        list[str]
+            List of lemmas in the frequency range.
+        """
+        if not hasattr(self.__class__, '_cached_training_freq_dist'):
+            freq_dist = Counter()
+            for doc in self:
+                lemmas = [token.lemma_.lower() for token in doc]
+                freq_dist.update(lemmas)
+            self.__class__._cached_training_freq_dist = freq_dist
+
+        freq_dist = self.__class__._cached_training_freq_dist
+        lemma_count = freq_dist.get(lemma, 0)
+        return lemma_count >= min_df and (max_df is None or lemma_count <= max_df)
+
+    def get_distinct_noun_phrases(self):
+        """
+        Get the noun phrases in the dataset.
+
+        Returns
+        -------
+        list[str]
+            List of noun phrases in the dataset.
+        """
+        if not hasattr(self.__class__, '_cached_noun_phrases'):
+            noun_phrases = []
+            for doc in self:
+                chunks = [chunk.text.lower() for chunk in doc.noun_chunks]
+                noun_phrases += chunks
+            self.__class__._cached_noun_phrases = list(set(noun_phrases))
+        return self.__class__._cached_noun_phrases
 
     def get_label_subsets(self):
         """
@@ -78,8 +125,8 @@ class Dataset(list):
         Dataset, Dataset, Dataset
             Training, evaluation, and testing sets.
         """
-        train_data, remaining_data = train_test_split(self, test_size=0.3, random_state=41)
-        eval_data, test_data = train_test_split(remaining_data, test_size=0.5, random_state=41)
+        train_data, remaining_data = train_test_split(self, test_size=0.3, random_state=41, stratify=[doc._.label for doc in self])
+        eval_data, test_data = train_test_split(remaining_data, test_size=0.5, random_state=41, stratify=[doc._.label for doc in remaining_data])
 
         print(f"Training set: {len(train_data)} docs")
         print(f"Evaluation set: {len(eval_data)} docs")
@@ -91,40 +138,22 @@ class Dataset(list):
         """
         Separates the review texts and labels into distinct lists.
 
-        Parameters
-        ----------
-        exclude : list[str]
-            List of words to exclude when filtering.
-
         Returns
         -------
         list[str], list[int]
             List of reviews and list of labels.
         """
         data = []
+        raw_data = []
         labels = []
         for doc in self:
             data.append(doc._.processed_text(self))
+            raw_data.append(doc.text)
             labels.append(doc._.label)
+
+        self.raw_data = raw_data
         return data, labels
 
-    @property
-    def frequency_distribution(self):
-        """
-        Compute frequency distribution of words in the dataset.
-
-        Returns
-        -------
-        Counter
-            Frequency distribution of word lemmas across dataset.
-        """
-        if not hasattr(self, '_freq_dist'):
-            freq_dist = Counter()
-            for doc in self:
-                lemmas = [token.lemma_.lower() for token in doc]
-                freq_dist.update(lemmas)
-            self._freq_dist = freq_dist
-        return self._.freq_dist
 
     # --- ANALYSIS METHODS ---
     def get_base_statistics(self, verbose=False):
@@ -133,7 +162,8 @@ class Dataset(list):
 
         Returns
         -------
-        list[str]
+        list[[[str]]]
+            List of statistics for each subset.
         """
         stats =  []
         for subset in self.get_label_subsets():
@@ -187,9 +217,6 @@ class Dataset(list):
             print(tabulate(data, headers="firstrow"))
 
         return data
-    
-    def get_pos_statistics(self, verbose=False):
-        pass
 
 if __name__ == "__main__":
     reviews = read_in('data/pos', 1)
@@ -201,5 +228,5 @@ if __name__ == "__main__":
     train_dataset, eval_dataset, test_dataset = dataset.split()
     
     dataset.get_base_statistics(verbose=True)
-    dataset.get_unique_vocab(verbose=True)
-    dataset.get_pos_statistics(verbose=True)
+    # dataset.get_unique_vocab(verbose=True)
+    # dataset.get_pos_statistics(verbose=True)

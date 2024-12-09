@@ -26,3 +26,17 @@ def read_in(dir, label):
             text = file.read()
         reviews.append((text, {"id": id, "rating": rating, "label": label}))
     return reviews
+
+
+def get_lengths(dir):
+    """
+    Peace of mind.
+    """
+    lengths = []
+    for filename in os.listdir(dir):
+        file_path = os.path.join(dir, filename)
+        with open(file_path, 'r') as file:
+            text = file.read()
+            lengths.append(len(text.split()))
+            print(len(text))
+    return lengths

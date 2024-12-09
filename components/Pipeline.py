@@ -1,8 +1,6 @@
 from spacy.tokenizer import Tokenizer
-from spacy.language import Language
 from spacy.tokens import Token
 
-from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk.stem import PorterStemmer
 import spacy
@@ -20,18 +18,38 @@ class Pipeline:
     def __call__(self, text):
         """
         Process the given text through the pipeline.
+
+        Parameters
+        ----------
+        text : str
+            The text to process.
+        
+        Returns
+        -------
+        spacy.Doc
+            The processed text.
         """
         return self._pipeline(text)
 
     def __getattr__(self, name):
         """
         Delegate get attribute to the spaCy pipeline.
+
+        Parameters
+        ----------
+        name : str
+            The attribute name.
+        
+        Returns
+        -------
+        Any
+            The attribute of the spaCy pipeline.
         """
         return getattr(self._pipeline, name)
 
     def configure_pipeline(self, tokeniser):
         """
-        Configure pipeline with extensions and tokeniser modications.
+        Configure spaCy nlp pipeline.
 
         Parameters
         ----------

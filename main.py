@@ -1,75 +1,81 @@
-from sklearn.feature_extraction.text import CountVectorizer
+import importlib
+import json
 
-from spacy.tokens import Doc, Token
-
-import pickle
-
-from components.Classifier import Classifier
 from components.Pipeline import Pipeline
 from components.Dataset import Dataset
-from NaiveBayes import NaiveBayes
+from spacy.tokens import Doc, Token
+from pathlib import Path
 
 from utils import read_in
 
-# Setting filtered attribute on Token and processed_text attribute on Doc
-def filtered(token, dataset):
-    """
-    Method called on each token to check if it should be filtered.
-    """
-    if token.is_punct or token.is_space:
-        return True
+"""
+RUN EXPERIMENTS
+"""
 
-def processed_text(doc, dataset):
-    """
-    Method called on each doc to return the processed text containing only non-filtered tokens.
-    """
-    text = []
-    for token in doc:
-        if not token._.filtered(dataset):
-            text.append(token.text)
-    return " ".join(text)
+# Load the data
+reviews = read_in('data/pos', 1)
+reviews += read_in('data/neg', -1)
 
-Token.set_extension('filtered', method=filtered)
-Doc.set_extension('processed_text', method=processed_text)
+# Initialise the pipeline and dataset
+pipeline = Pipeline()
+pipeline.show()
+dataset = Dataset([1, -1], data=reviews, pipeline=pipeline)
+train_set, eval_set, test_set = dataset.split()
 
+# Load config
+with open("config.json") as config_file:
+    config = json.load(config_file)
+experiments_to_run = config.get("exps_to_run", [])
 
-# Custom classifer for sepcifying feature generation
-class CustomClassifier(Classifier):
-    def __init__(self, train_set, eval_set):
-        super().__init__(train_set, eval_set)
+# Run experiments
+exp_path = Path('experiments')
+exp_files = sorted(exp_path.glob('exp_*.py'), key=lambda x: int(x.stem.split('_')[-1]))
+
+# for exp_file in exp_files:
+#     module_name = f"{exp_path.name}.{exp_file.stem}"
+#     if exp_file.stem not in experiments_to_run:
+#         continue
+
+#     module = importlib.import_module(module_name)
+
+#     # Get classifier class and filtering and text processing methods
+#     description = getattr(module, 'description')
+#     CustomClassifier = getattr(module, 'CustomClassifier')
+#     filtered = getattr(module, 'filtered')
+#     processed_text = getattr(module, 'processed_text')
+
+#     # Set the filtered and processed_text extensions and initialise classifier
+#     Token.set_extension('filtered', method=filtered, force=True)
+#     Doc.set_extension('processed_text', method=processed_text, force=True)
+#     classifier = CustomClassifier(train_set, eval_set)
     
-    def get_feature_counts(self, data, is_test=False):
-        """
-        Simple approach returning count vectors for each review.
-        """
-        if not is_test:
-            self.cv = CountVectorizer()
-            return self.cv.fit_transform(data)
-        return self.cv.transform(data)
+#     # Run the classifier and print info
+#     print("="*50)
+#     print(f"Running {module_name}")
+#     print(description)
+#     classifier.run()
 
 
-if __name__ == "__main__":
-    reviews = read_in('data/pos', 1)
-    reviews += read_in('data/neg', -1)
+"""
+EVALUATE MODEL ON TEST SET
+"""
+from experiments.exp_16 import CustomClassifier, filtered, processed_text
 
-    # Pipeline
-    pipeline = Pipeline()
-    dataset = Dataset([1, -1], data=reviews, pipeline=pipeline)
-    train_set, eval_set, test_set = dataset.split()
+Token.set_extension('filtered', method=filtered, force=True)
+Doc.set_extension('processed_text', method=processed_text, force=True)
 
-    classifier = CustomClassifier(train_set, eval_set)
-    train_counts = classifier.train()
-    # print(train_counts.shape)
-    # prediction = classifier.evaluate()
-
-    naive_bayes = NaiveBayes()
-    naive_bayes.train(train_counts, train_set.flatten()[1])
-
-    eval_data, eval_labels = eval_set.flatten()
-    eval_counts = classifier.get_feature_counts(eval_data, is_test=True)
-    predictions = naive_bayes.predict(eval_set)
-    print(predictions)
-
-    # train_labels = train_set.flatten()[1]
-    # with open('counts_and_labels.pkl', 'wb') as file:
-    #   pickle.dump((train_counts, train_labels, eval_set, classifier.cv), file)
+# Run the classifier and print info
+print("="*50)
+print(f"Evaluating sklearn naive bayes model on test set using final exp_16 feature set...")
+print("="*50)
+# Sklearn
+classifier = CustomClassifier(train_set, test_set)
+classifier.run()
+# Custom Naive Bayes
+print("="*50)
+print(f"Evaluating custom naive bayes model on test set using final exp_16 feature set...")
+print("="*50)
+# Sklearn
+classifier = CustomClassifier(train_set, test_set)
+counts = classifier.train(type='custom')
+predictions = classifier.evaluate()
